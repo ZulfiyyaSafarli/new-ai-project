@@ -1,0 +1,16 @@
+scenario_id,scenario_name,algorithm,path,total_cost,nodes_explored,computation_time_ms,battery_used,path_length,is_optimal,deadline_met,feasible
+1,Standard Delivery,A*,Arad→Sibiu→Rimnicu Vilcea→Pitesti→Bucharest,418.0,6,0.2302999928360805,418.0,4,True,True,True
+1,Standard Delivery,Dijkstra,Arad→Sibiu→Rimnicu Vilcea→Pitesti→Bucharest,418.0,13,0.20120000408496708,418.0,4,True,True,True
+1,Standard Delivery,Greedy BFS,Arad→Sibiu→Fagaras→Bucharest,450.0,4,0.09140001202467829,450.0,3,False,True,True
+2,Long Range,A*,,inf,15,0.1880000054370612,,0,False,False,False
+2,Long Range,Dijkstra,,inf,15,0.12159999459981918,,0,False,False,False
+2,Long Range,Greedy BFS,,inf,15,0.11229999654460698,,0,False,False,False
+3,Tight Battery,A*,,inf,9,0.0864000030560419,,0,False,False,False
+3,Tight Battery,Dijkstra,,inf,9,0.048699992476031184,,0,False,False,False
+3,Tight Battery,Greedy BFS,,inf,9,0.05089999467600137,,0,False,False,False
+4,Time-Critical,A*,,inf,13,0.18770000315271318,,0,False,False,False
+4,Time-Critical,Dijkstra,,inf,13,0.13479999324772507,,0,False,False,False
+4,Time-Critical,Greedy BFS,,inf,13,0.12749999586958438,,0,False,False,False
+5,Constrained Cross-Country,A*,,inf,9,0.12569999671541154,,0,False,False,False
+5,Constrained Cross-Country,Dijkstra,,inf,9,0.08720000914763659,,0,False,False,False
+5,Constrained Cross-Country,Greedy BFS,,inf,9,0.09830000635702163,,0,False,False,False
