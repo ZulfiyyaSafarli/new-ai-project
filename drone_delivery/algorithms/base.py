@@ -14,6 +14,7 @@ class SearchNode:
     g_cost: float = 0.0
     h_cost: float = 0.0
     f_cost: float = 0.0
+    battery: float = 0.0
 
 
 @dataclass
@@ -26,6 +27,7 @@ class SearchStep:
     partial_path: list[str]
     g_cost: float
     node_costs: dict[str, tuple[float, float, float]]  # state -> (g, h, f)
+    current_battery: float = 0.0
 
 
 @dataclass

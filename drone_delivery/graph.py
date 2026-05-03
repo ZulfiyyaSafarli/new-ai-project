@@ -2,6 +2,16 @@
 
 STEP_DELAY_MS = 300
 
+# Charging hubs on the Romania map (~20% of cities). Arriving here refills battery to capacity.
+BATTERY_STATIONS: frozenset[str] = frozenset(
+    {
+        "Sibiu",
+        "Craiova",
+        "Pitesti",
+        "Bucharest",
+    }
+)
+
 GRAPH = {
     "Arad": [("Zerind", 75), ("Sibiu", 140), ("Timisoara", 118)],
     "Zerind": [("Arad", 75), ("Oradea", 71)],

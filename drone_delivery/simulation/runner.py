@@ -13,9 +13,46 @@ from drone_delivery.algorithms.astar import astar
 from drone_delivery.algorithms.dijkstra import dijkstra
 from drone_delivery.algorithms.greedy import greedy_best_first
 from drone_delivery.drone import Drone
-from drone_delivery.graph import GRAPH, HEURISTIC
+from drone_delivery.graph import BATTERY_STATIONS, GRAPH, HEURISTIC
 
 ALGO_KEYS = ("A*", "Dijkstra", "Greedy BFS")
+_STATIONS: set[str] = set(BATTERY_STATIONS)
+
+
+def _edge_weight(graph: dict[str, list[tuple[str, int]]], a: str, b: str) -> float | None:
+    for nbr, w in graph.get(a, []):
+        if nbr == b:
+            return float(w)
+    return None
+
+
+def path_battery_stats(
+    path: list[str],
+    graph: dict[str, list[tuple[str, int]]],
+    charging_stations: set[str],
+    capacity: int,
+) -> tuple[float, int, float]:
+    """Peak drain between full charges, station arrivals (recharges), final battery at goal."""
+    if len(path) < 2:
+        return (float("nan"), 0, float(capacity))
+    bat = float(capacity)
+    leg = 0.0
+    peak = 0.0
+    recharges = 0
+    for i in range(len(path) - 1):
+        u, v = path[i], path[i + 1]
+        w = _edge_weight(graph, u, v)
+        if w is None or bat < w:
+            return (float("nan"), 0, float("nan"))
+        bat -= w
+        leg += w
+        if v in charging_stations:
+            peak = max(peak, leg)
+            leg = 0.0
+            recharges += 1
+            bat = float(capacity)
+    peak = max(peak, leg)
+    return (peak, recharges, bat)
 
 
 def drone_from_scenario(scenario: dict[str, Any]) -> Drone:
@@ -33,9 +70,9 @@ def run_scenario(scenario: dict[str, Any]) -> dict[str, SearchResult]:
     drone = drone_from_scenario(scenario)
     start, goal = scenario["start"], scenario["goal"]
     return {
-        "A*": astar(GRAPH, start, goal, HEURISTIC, drone),
-        "Dijkstra": dijkstra(GRAPH, start, goal, HEURISTIC, drone),
-        "Greedy BFS": greedy_best_first(GRAPH, start, goal, HEURISTIC, drone),
+        "A*": astar(GRAPH, start, goal, HEURISTIC, drone, _STATIONS),
+        "Dijkstra": dijkstra(GRAPH, start, goal, HEURISTIC, drone, _STATIONS),
+        "Greedy BFS": greedy_best_first(GRAPH, start, goal, HEURISTIC, drone, _STATIONS),
     }
 
 
@@ -64,10 +101,17 @@ def evaluate(
 ) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     deadline = int(scenario["deadline"])
+    cap = int(scenario["battery"])
     for name in ALGO_KEYS:
         r = results[name]
         path = r.path
         cost = r.total_cost
+        if r.feasible and path:
+            peak_leg, n_recharge, final_b = path_battery_stats(path, GRAPH, _STATIONS, cap)
+            battery_consumption = float(cost)  # sum of edge weights == total trip distance
+        else:
+            peak_leg, n_recharge, final_b = float("nan"), 0, float("nan")
+            battery_consumption = float("nan")
         rows.append(
             {
                 "scenario_id": scenario["id"],
@@ -77,7 +121,10 @@ def evaluate(
                 "total_cost": cost if r.feasible else float("inf"),
                 "nodes_explored": r.nodes_explored,
                 "computation_time_ms": r.computation_time_ms,
-                "battery_used": cost if r.feasible else float("nan"),
+                "battery_consumption": battery_consumption,
+                "battery_peak_leg_drain": peak_leg,
+                "recharge_visits": n_recharge,
+                "final_battery": final_b,
                 "path_length": max(len(path) - 1, 0) if path else 0,
                 "is_optimal": _is_optimal(name, r, results),
                 "deadline_met": r.feasible and cost <= deadline,

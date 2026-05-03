@@ -13,9 +13,55 @@ from matplotlib.table import Table
 ALGO_ORDER = ["A*", "Dijkstra", "Greedy BFS"]
 
 
-def make_bar_chart(ax: Axes, df: pd.DataFrame, metric: str) -> None:
-    """Grouped bar chart: scenarios 1–5, groups = algorithms."""
+def _clear_bar_axis_and_twins(ax: Axes) -> None:
+    """Remove twinx siblings sharing the same subplot cell, then clear the primary axis."""
+    fig = ax.figure
+    ss = ax.get_subplotspec()
+    if ss is not None:
+        for other in list(fig.axes):
+            if other is not ax and other.get_subplotspec() == ss:
+                other.remove()
     ax.clear()
+
+
+def _series_for_algo(
+    df: pd.DataFrame, scenarios: list, algo: str, metric: str
+) -> tuple[list[float], list[bool]]:
+    """Values; `failed` means infeasible run (hatch bars) — only used for total_cost display."""
+    vals: list[float] = []
+    failed: list[bool] = []
+    for sid in scenarios:
+        row = df[(df["scenario_id"] == sid) & (df["algorithm"] == algo)]
+        if row.empty:
+            vals.append(0.0)
+            failed.append(False)
+            continue
+        r0 = row.iloc[0]
+        feas = bool(r0.get("feasible", False))
+        try:
+            v = float(r0[metric])
+        except (KeyError, TypeError, ValueError):
+            v = float("nan")
+
+        if metric == "total_cost":
+            if not feas or not math.isfinite(v):
+                vals.append(float("nan"))
+                failed.append(True)
+            else:
+                vals.append(v)
+                failed.append(False)
+        else:
+            failed.append(False)
+            if not math.isfinite(v):
+                vals.append(0.0)
+            else:
+                vals.append(v)
+    return vals, failed
+
+
+def make_bar_chart(ax: Axes, df: pd.DataFrame, metric: str) -> None:
+    """Grouped bar chart: scenarios 1–5, groups = algorithms. Infeasible runs are hatched, not drawn as zero."""
+    _clear_bar_axis_and_twins(ax)
     if df.empty or "scenario_id" not in df.columns:
         ax.text(0.5, 0.5, "No data", ha="center", va="center", transform=ax.transAxes)
         return
@@ -24,34 +70,88 @@ def make_bar_chart(ax: Axes, df: pd.DataFrame, metric: str) -> None:
     x = np.arange(len(scenarios), dtype=float)
     width = 0.25
 
-    def series_for_algo(algo: str) -> list[float]:
-        vals: list[float] = []
-        for sid in scenarios:
-            row = df[(df["scenario_id"] == sid) & (df["algorithm"] == algo)]
-            if row.empty:
-                vals.append(0.0)
-                continue
-            v = float(row.iloc[0][metric])
-            if not math.isfinite(v):
-                vals.append(0.0)
-            else:
-                vals.append(v)
-        return vals
+    finite_caps: list[float] = []
+    for algo in ALGO_ORDER:
+        vals, _ = _series_for_algo(df, scenarios, algo, metric)
+        finite_caps.extend([v for v in vals if math.isfinite(v)])
+    max_fin = max(finite_caps) if finite_caps else 1.0
+    fail_height = max(max_fin * 1.12, max_fin + 1.0, 1.0)
 
     for i, algo in enumerate(ALGO_ORDER):
-        heights = series_for_algo(algo)
+        vals, failed = _series_for_algo(df, scenarios, algo, metric)
+        plot_vals = [fail_height if f and math.isnan(v) else (0.0 if not math.isfinite(v) else v) for v, f in zip(vals, failed)]
         offset = (i - 1) * width
-        ax.bar(x + offset, heights, width, label=algo)
+        bars = ax.bar(x + offset, plot_vals, width, label=algo)
+        if metric == "total_cost":
+            for rect, f in zip(bars.patches, failed):
+                if f:
+                    rect.set_hatch("xx")
+                    rect.set_alpha(0.55)
 
     ax.set_xticks(x)
     ax.set_xticklabels([str(int(s)) for s in scenarios])
     ax.set_xlabel("Scenario")
-    ylabel = {"total_cost": "Total cost", "nodes_explored": "Nodes explored", "computation_time_ms": "Time (ms)"}.get(
-        metric, metric
-    )
+    ylabel = {
+        "total_cost": "Total cost (hatched = infeasible)",
+        "nodes_explored": "Nodes explored",
+        "computation_time_ms": "Time (ms)",
+        "battery_peak_leg_drain": "Peak leg battery drain",
+        "battery_consumption": "Battery consumption (sum edges)",
+        "recharge_visits": "Recharge stops",
+    }.get(metric, metric)
     ax.set_ylabel(ylabel)
     ax.legend(loc="upper right", fontsize=8)
     ax.set_title("Algorithm comparison")
+
+
+def make_bar_chart_dual_cost_and_peak(ax: Axes, df: pd.DataFrame) -> None:
+    """Twin y-axis: total cost (left) and peak leg drain (right) per algorithm. Infeasible cost bars are hatched."""
+    _clear_bar_axis_and_twins(ax)
+    if df.empty or "scenario_id" not in df.columns:
+        ax.text(0.5, 0.5, "No data", ha="center", va="center", transform=ax.transAxes)
+        return
+
+    scenarios = sorted(df["scenario_id"].unique())
+    x = np.arange(len(scenarios), dtype=float)
+    width = 0.22
+    ax2 = ax.twinx()
+
+    finite_costs: list[float] = []
+    for algo in ALGO_ORDER:
+        vals, _ = _series_for_algo(df, scenarios, algo, "total_cost")
+        finite_costs.extend([v for v in vals if math.isfinite(v)])
+    max_cost = max(finite_costs) if finite_costs else 1.0
+    fail_height = max(max_cost * 1.12, max_cost + 1.0, 1.0)
+
+    colors_left = ["tab:blue", "tab:green", "tab:red"]
+    colors_right = ["#6baed6", "#74c476", "#fb6a6a"]
+
+    for i, algo in enumerate(ALGO_ORDER):
+        offset = (i - 1) * width
+        cvals, cfail = _series_for_algo(df, scenarios, algo, "total_cost")
+        left_heights = [
+            fail_height if f and math.isnan(v) else (0.0 if not math.isfinite(v) else v)
+            for v, f in zip(cvals, cfail)
+        ]
+        bars = ax.bar(x + offset - 0.04, left_heights, width * 0.85, color=colors_left[i], label=f"{algo} cost")
+        for rect, f in zip(bars.patches, cfail):
+            if f:
+                rect.set_hatch("xx")
+                rect.set_alpha(0.5)
+
+        pvals, _ = _series_for_algo(df, scenarios, algo, "battery_peak_leg_drain")
+        right_heights = [0.0 if not math.isfinite(v) else v for v in pvals]
+        ax2.bar(x + offset + 0.04, right_heights, width * 0.85, color=colors_right[i], alpha=0.85, label=f"{algo} peak leg")
+
+    ax.set_xticks(x)
+    ax.set_xticklabels([str(int(s)) for s in scenarios])
+    ax.set_xlabel("Scenario")
+    ax.set_ylabel("Total cost", color="black")
+    ax2.set_ylabel("Peak leg drain", color="gray")
+    ax.set_title("Cost (left) vs peak leg drain (right); hatched = infeasible cost")
+    h1, l1 = ax.get_legend_handles_labels()
+    h2, l2 = ax2.get_legend_handles_labels()
+    ax.legend(h1 + h2, l1 + l2, loc="upper right", fontsize=7)
 
 
 def make_metrics_table(ax: Axes, rows: list[dict[str, Any]]) -> Table | None:
@@ -62,17 +162,25 @@ def make_metrics_table(ax: Axes, rows: list[dict[str, Any]]) -> Table | None:
         ax.text(0.5, 0.5, "—", ha="center", va="center", transform=ax.transAxes)
         return None
 
-    headers = ["Algorithm", "Cost", "Nodes", "Time(ms)", "Optimal", "Deadline"]
+    headers = ["Algo", "Cost", "Peak", "Rchg", "FinBat", "Nodes", "T(ms)", "Opt", "DL"]
     cell_text = []
     for row in rows:
         cost = row["total_cost"]
         cost_s = "inf" if not math.isfinite(float(cost)) else str(int(cost))
+        peak = row.get("battery_peak_leg_drain", float("nan"))
+        peak_s = "—" if not math.isfinite(float(peak)) else str(int(peak))
+        rchg = row.get("recharge_visits", 0)
+        fb = row.get("final_battery", float("nan"))
+        fb_s = "—" if not math.isfinite(float(fb)) else str(int(fb))
         opt = "✓" if row["is_optimal"] else "✗"
         dl = "✓" if row["deadline_met"] else "✗"
         cell_text.append(
             [
                 row["algorithm"],
                 cost_s,
+                peak_s,
+                str(int(rchg)),
+                fb_s,
                 str(row["nodes_explored"]),
                 f"{row['computation_time_ms']:.2f}",
                 opt,
@@ -87,8 +195,8 @@ def make_metrics_table(ax: Axes, rows: list[dict[str, Any]]) -> Table | None:
         cellLoc="center",
     )
     tbl.auto_set_font_size(False)
-    tbl.set_fontsize(8)
-    tbl.scale(1.0, 1.4)
+    tbl.set_fontsize(7)
+    tbl.scale(1.0, 1.35)
     ax.set_title("Metrics (current scenario)", fontsize=10, pad=8)
     return tbl
 

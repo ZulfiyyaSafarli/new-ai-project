@@ -16,10 +16,10 @@ from drone_delivery.algorithms.astar import astar_steps
 from drone_delivery.algorithms.base import SearchStep
 from drone_delivery.algorithms.dijkstra import dijkstra_steps
 from drone_delivery.algorithms.greedy import greedy_best_first_steps
-from drone_delivery.graph import GRAPH, HEURISTIC, STEP_DELAY_MS, node_positions
+from drone_delivery.graph import BATTERY_STATIONS, GRAPH, HEURISTIC, STEP_DELAY_MS, node_positions
 from drone_delivery.simulation.runner import drone_from_scenario
 
-from .results_plotter import make_bar_chart, make_cost_line, make_metrics_table
+from .results_plotter import make_bar_chart, make_bar_chart_dual_cost_and_peak, make_cost_line, make_metrics_table
 
 
 @dataclass
@@ -54,7 +54,7 @@ def build_animation_frames(scenarios: list[dict[str, Any]]) -> list[AnimFrame]:
         drone = drone_from_scenario(sc)
         start, goal = sc["start"], sc["goal"]
         for algo_name, steps_fn in algo_steps:
-            gen = steps_fn(GRAPH, start, goal, HEURISTIC, drone)
+            gen = steps_fn(GRAPH, start, goal, HEURISTIC, drone, set(BATTERY_STATIONS))
             g_hist: list[float] = []
             last_step: SearchStep | None = None
             final_path: list[str] = []
@@ -136,7 +136,7 @@ class GraphDashboard:
         self._metric = "total_cost"
         self._radio = RadioButtons(
             self.ax_radio,
-            ("total_cost", "nodes_explored", "time_ms"),
+            ("total_cost", "nodes_explored", "time_ms", "cost+peak_leg"),
             active=0,
         )
         self._radio.on_clicked(self._on_radio)
@@ -151,6 +151,11 @@ class GraphDashboard:
         self._anim: FuncAnimation | None = None
 
     def _on_radio(self, label: str) -> None:
+        if label == "cost+peak_leg":
+            make_bar_chart_dual_cost_and_peak(self.ax_bar, self.metrics_df)
+            self._metric = "cost+peak_leg"
+            self.fig.canvas.draw_idle()
+            return
         mapping = {
             "total_cost": "total_cost",
             "nodes_explored": "nodes_explored",
@@ -174,6 +179,8 @@ class GraphDashboard:
                 cols.append("#ff6347")  # tomato / explored
             elif n in step.frontier:
                 cols.append("#ffd700")  # gold
+            elif n in BATTERY_STATIONS:
+                cols.append("#9b59b6")  # charging hub
             else:
                 cols.append("#e8e8e8")  # unvisited
         return cols
@@ -205,7 +212,8 @@ class GraphDashboard:
         labels: dict[str, str] = {}
         algo = fr.algorithm
         for n in self.G.nodes():
-            labels[n] = str(n)
+            mark = "⚡ " if n in BATTERY_STATIONS else ""
+            labels[n] = f"{mark}{n}"
         for state, (g, h, f) in step.node_costs.items():
             if algo == "A*":
                 extra = f"{g:.0f}/{h:.0f}/{f:.0f}"
@@ -213,7 +221,8 @@ class GraphDashboard:
                 extra = f"g={g:.0f}"
             else:
                 extra = f"h={h:.0f}"
-            labels[state] = f"{state}\n{extra}"
+            mark = "⚡ " if state in BATTERY_STATIONS else ""
+            labels[state] = f"{mark}{state}\n{extra}\nBat {step.current_battery:.0f}"
         return labels
 
     def _draw_graph(self, fr: AnimFrame) -> None:
@@ -244,6 +253,7 @@ class GraphDashboard:
             linewidths=1.0,
         )
         cur = fr.step.current
+        cur_ec = "#f1c40f" if cur in BATTERY_STATIONS else "black"
         nx.draw_networkx_nodes(
             self.G,
             self.pos,
@@ -251,7 +261,7 @@ class GraphDashboard:
             ax=self.ax_graph,
             node_color="#1e90ff",
             node_size=620,
-            edgecolors="black",
+            edgecolors=cur_ec,
             linewidths=2.0,
         )
         lbls = self._node_labels(fr)

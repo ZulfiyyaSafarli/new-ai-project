@@ -1,5 +1,6 @@
 """Drone model and battery helpers."""
 
+from collections.abc import Set
 from dataclasses import dataclass
 
 
@@ -26,3 +27,24 @@ def edge_feasible(drone: Drone, g_so_far: float, edge_cost: float) -> bool:
     if new_g > drone.deadline:
         return False
     return True
+
+
+def deadline_ok(drone: Drone, new_g: float) -> bool:
+    return new_g <= float(drone.deadline)
+
+
+def battery_after_edge(
+    battery: float,
+    edge_cost: float,
+    dest: str,
+    charging_stations: Set[str],
+    capacity: int,
+) -> float | None:
+    """Battery after traversing one edge to dest; full recharge if dest is a station. None if drain impossible."""
+    w = float(edge_cost)
+    if battery < w:
+        return None
+    b = battery - w
+    if dest in charging_stations:
+        return float(capacity)
+    return b
