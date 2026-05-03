@@ -13,13 +13,13 @@ from matplotlib.animation import FuncAnimation
 from matplotlib.widgets import RadioButtons
 
 from drone_delivery.algorithms.astar import astar_steps
-from drone_delivery.algorithms.base import SearchStep
+from drone_delivery.algorithms.base import SearchResult, SearchStep
 from drone_delivery.algorithms.dijkstra import dijkstra_steps
 from drone_delivery.algorithms.greedy import greedy_best_first_steps
 from drone_delivery.graph import BATTERY_STATIONS, GRAPH, HEURISTIC, STEP_DELAY_MS, node_positions
 from drone_delivery.simulation.runner import drone_from_scenario
 
-from .results_plotter import make_bar_chart, make_bar_chart_dual_cost_and_peak, make_cost_line, make_metrics_table
+from .results_plotter import make_bar_chart, make_cost_line, make_metrics_table
 
 
 @dataclass
@@ -40,8 +40,17 @@ def _build_romania_graph() -> nx.Graph:
     return G
 
 
-def build_animation_frames(scenarios: list[dict[str, Any]]) -> list[AnimFrame]:
-    """Sequential: each scenario × (A*, Dijkstra, Greedy); settle frames after each run."""
+def _scenario_has_feasible_path(results: dict[str, SearchResult]) -> bool:
+    return any(r.feasible for r in results.values())
+
+
+def build_animation_frames(
+    per_scenario: list[tuple[dict[str, Any], dict[str, SearchResult], list[dict[str, Any]]]],
+) -> list[AnimFrame]:
+    """Sequential: each scenario × (A*, Dijkstra, Greedy); settle frames after each run.
+
+    Scenarios where no algorithm finds a feasible path are omitted (no graph replay).
+    """
     settle_n = max(3, int(1000 / STEP_DELAY_MS))
     frames: list[AnimFrame] = []
     algo_steps: list[tuple[str, Callable[..., Any]]] = [
@@ -50,7 +59,9 @@ def build_animation_frames(scenarios: list[dict[str, Any]]) -> list[AnimFrame]:
         ("Greedy BFS", greedy_best_first_steps),
     ]
 
-    for sc in scenarios:
+    for sc, results, _ in per_scenario:
+        if not _scenario_has_feasible_path(results):
+            continue
         drone = drone_from_scenario(sc)
         start, goal = sc["start"], sc["goal"]
         for algo_name, steps_fn in algo_steps:
@@ -101,14 +112,14 @@ class GraphDashboard:
 
     def __init__(
         self,
-        per_scenario: list[tuple[dict[str, Any], Any, list[dict[str, Any]]]],
+        per_scenario: list[tuple[dict[str, Any], dict[str, SearchResult], list[dict[str, Any]]]],
         all_rows: list[dict[str, Any]],
     ) -> None:
         self.per_scenario = per_scenario
         self.all_rows = all_rows
         self.metrics_df = pd.DataFrame(all_rows)
         scenarios = [t[0] for t in per_scenario]
-        self.frames = build_animation_frames(scenarios)
+        self.frames = build_animation_frames(per_scenario)
         self._rows_by_sid: dict[int, list[dict[str, Any]]] = {
             int(sc["id"]): rows for sc, _, rows in per_scenario
         }
@@ -136,7 +147,7 @@ class GraphDashboard:
         self._metric = "total_cost"
         self._radio = RadioButtons(
             self.ax_radio,
-            ("total_cost", "nodes_explored", "time_ms", "cost+peak_leg"),
+            ("total_cost", "nodes_explored", "time_ms"),
             active=0,
         )
         self._radio.on_clicked(self._on_radio)
@@ -151,11 +162,6 @@ class GraphDashboard:
         self._anim: FuncAnimation | None = None
 
     def _on_radio(self, label: str) -> None:
-        if label == "cost+peak_leg":
-            make_bar_chart_dual_cost_and_peak(self.ax_bar, self.metrics_df)
-            self._metric = "cost+peak_leg"
-            self.fig.canvas.draw_idle()
-            return
         mapping = {
             "total_cost": "total_cost",
             "nodes_explored": "nodes_explored",
@@ -212,8 +218,7 @@ class GraphDashboard:
         labels: dict[str, str] = {}
         algo = fr.algorithm
         for n in self.G.nodes():
-            mark = "⚡ " if n in BATTERY_STATIONS else ""
-            labels[n] = f"{mark}{n}"
+            labels[n] = n
         for state, (g, h, f) in step.node_costs.items():
             if algo == "A*":
                 extra = f"{g:.0f}/{h:.0f}/{f:.0f}"
@@ -221,8 +226,7 @@ class GraphDashboard:
                 extra = f"g={g:.0f}"
             else:
                 extra = f"h={h:.0f}"
-            mark = "⚡ " if state in BATTERY_STATIONS else ""
-            labels[state] = f"{mark}{state}\n{extra}\nBat {step.current_battery:.0f}"
+            labels[state] = f"{state}\n{extra}"
         return labels
 
     def _draw_graph(self, fr: AnimFrame) -> None:
@@ -303,6 +307,8 @@ class GraphDashboard:
         plt.show()
 
 
-def run_dashboard_headless_build_frames(scenarios: list[dict[str, Any]]) -> int:
+def run_dashboard_headless_build_frames(
+    per_scenario: list[tuple[dict[str, Any], dict[str, SearchResult], list[dict[str, Any]]]],
+) -> int:
     """For tests: build frame count without displaying."""
-    return len(build_animation_frames(scenarios))
+    return len(build_animation_frames(per_scenario))

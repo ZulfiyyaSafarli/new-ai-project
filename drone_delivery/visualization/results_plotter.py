@@ -104,56 +104,6 @@ def make_bar_chart(ax: Axes, df: pd.DataFrame, metric: str) -> None:
     ax.set_title("Algorithm comparison")
 
 
-def make_bar_chart_dual_cost_and_peak(ax: Axes, df: pd.DataFrame) -> None:
-    """Twin y-axis: total cost (left) and peak leg drain (right) per algorithm. Infeasible cost bars are hatched."""
-    _clear_bar_axis_and_twins(ax)
-    if df.empty or "scenario_id" not in df.columns:
-        ax.text(0.5, 0.5, "No data", ha="center", va="center", transform=ax.transAxes)
-        return
-
-    scenarios = sorted(df["scenario_id"].unique())
-    x = np.arange(len(scenarios), dtype=float)
-    width = 0.22
-    ax2 = ax.twinx()
-
-    finite_costs: list[float] = []
-    for algo in ALGO_ORDER:
-        vals, _ = _series_for_algo(df, scenarios, algo, "total_cost")
-        finite_costs.extend([v for v in vals if math.isfinite(v)])
-    max_cost = max(finite_costs) if finite_costs else 1.0
-    fail_height = max(max_cost * 1.12, max_cost + 1.0, 1.0)
-
-    colors_left = ["tab:blue", "tab:green", "tab:red"]
-    colors_right = ["#6baed6", "#74c476", "#fb6a6a"]
-
-    for i, algo in enumerate(ALGO_ORDER):
-        offset = (i - 1) * width
-        cvals, cfail = _series_for_algo(df, scenarios, algo, "total_cost")
-        left_heights = [
-            fail_height if f and math.isnan(v) else (0.0 if not math.isfinite(v) else v)
-            for v, f in zip(cvals, cfail)
-        ]
-        bars = ax.bar(x + offset - 0.04, left_heights, width * 0.85, color=colors_left[i], label=f"{algo} cost")
-        for rect, f in zip(bars.patches, cfail):
-            if f:
-                rect.set_hatch("xx")
-                rect.set_alpha(0.5)
-
-        pvals, _ = _series_for_algo(df, scenarios, algo, "battery_peak_leg_drain")
-        right_heights = [0.0 if not math.isfinite(v) else v for v in pvals]
-        ax2.bar(x + offset + 0.04, right_heights, width * 0.85, color=colors_right[i], alpha=0.85, label=f"{algo} peak leg")
-
-    ax.set_xticks(x)
-    ax.set_xticklabels([str(int(s)) for s in scenarios])
-    ax.set_xlabel("Scenario")
-    ax.set_ylabel("Total cost", color="black")
-    ax2.set_ylabel("Peak leg drain", color="gray")
-    ax.set_title("Cost (left) vs peak leg drain (right); hatched = infeasible cost")
-    h1, l1 = ax.get_legend_handles_labels()
-    h2, l2 = ax2.get_legend_handles_labels()
-    ax.legend(h1 + h2, l1 + l2, loc="upper right", fontsize=7)
-
-
 def make_metrics_table(ax: Axes, rows: list[dict[str, Any]]) -> Table | None:
     """Draw a table of metrics for one scenario; returns table handle."""
     ax.clear()

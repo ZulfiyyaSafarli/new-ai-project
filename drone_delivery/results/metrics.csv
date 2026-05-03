@@ -1,16 +1,16 @@
 scenario_id,scenario_name,algorithm,path,total_cost,nodes_explored,computation_time_ms,battery_consumption,battery_peak_leg_drain,recharge_visits,final_battery,path_length,is_optimal,deadline_met,feasible
-1,Standard Delivery,A*,Arad→Sibiu→Rimnicu Vilcea→Pitesti→Bucharest,418.0,6,0.16510000568814576,418.0,177.0,3,450.0,4,True,True,True
-1,Standard Delivery,Dijkstra,Arad→Sibiu→Rimnicu Vilcea→Pitesti→Bucharest,418.0,40,0.5870000168215483,418.0,177.0,3,450.0,4,True,True,True
-1,Standard Delivery,Greedy BFS,Arad→Sibiu→Fagaras→Bucharest,450.0,4,0.07089998689480126,450.0,310.0,2,450.0,3,False,True,True
-2,Long Range,A*,Oradea→Sibiu→Rimnicu Vilcea→Pitesti→Bucharest→Urziceni→Hirsova→Eforie,698.0,40,1.0325000039301813,698.0,269.0,3,331.0,7,True,True,True
-2,Long Range,Dijkstra,Oradea→Sibiu→Rimnicu Vilcea→Pitesti→Bucharest→Urziceni→Hirsova→Eforie,698.0,115,2.9243000026326627,698.0,269.0,3,331.0,7,True,True,True
-2,Long Range,Greedy BFS,Oradea→Sibiu→Fagaras→Bucharest→Urziceni→Hirsova→Eforie,730.0,9,0.13910001143813133,730.0,310.0,2,331.0,6,False,True,True
-3,Tight Battery,A*,Arad→Sibiu→Rimnicu Vilcea→Pitesti→Bucharest,418.0,6,0.11419999646022916,418.0,177.0,3,300.0,4,True,True,True
-3,Tight Battery,Dijkstra,Arad→Sibiu→Rimnicu Vilcea→Pitesti→Bucharest,418.0,27,0.3863000019919127,418.0,177.0,3,300.0,4,True,True,True
-3,Tight Battery,Greedy BFS,Arad→Sibiu→Rimnicu Vilcea→Pitesti→Bucharest,418.0,6,0.08869997691363096,418.0,177.0,3,300.0,4,True,True,True
-4,Time-Critical,A*,,inf,104,2.245400013634935,,,0,,0,False,False,False
-4,Time-Critical,Dijkstra,,inf,104,3.0277999758254737,,,0,,0,False,False,False
-4,Time-Critical,Greedy BFS,,inf,103,1.233099988894537,,,0,,0,False,False,False
-5,Constrained Cross-Country,A*,,inf,54,1.8276000046171248,,,0,,0,False,False,False
-5,Constrained Cross-Country,Dijkstra,,inf,54,1.1574999953154474,,,0,,0,False,False,False
-5,Constrained Cross-Country,Greedy BFS,,inf,47,0.7098999922163785,,,0,,0,False,False,False
+1,Standard Delivery,A*,Arad→Sibiu→Rimnicu Vilcea→Pitesti→Bucharest,418.0,6,0.07829998503439128,418.0,177.0,3,450.0,4,True,True,True
+1,Standard Delivery,Dijkstra,Arad→Sibiu→Rimnicu Vilcea→Pitesti→Bucharest,418.0,40,0.28169999131932855,418.0,177.0,3,450.0,4,True,True,True
+1,Standard Delivery,Greedy BFS,Arad→Sibiu→Fagaras→Bucharest,450.0,4,0.03540000761859119,450.0,310.0,2,450.0,3,False,True,True
+2,Long Range,A*,Oradea→Sibiu→Rimnicu Vilcea→Pitesti→Bucharest→Urziceni→Hirsova→Eforie,698.0,40,0.312299991492182,698.0,269.0,3,331.0,7,True,True,True
+2,Long Range,Dijkstra,Oradea→Sibiu→Rimnicu Vilcea→Pitesti→Bucharest→Urziceni→Hirsova→Eforie,698.0,115,1.1202000023331493,698.0,269.0,3,331.0,7,True,True,True
+2,Long Range,Greedy BFS,Oradea→Sibiu→Fagaras→Bucharest→Urziceni→Hirsova→Eforie,730.0,9,0.056200020480901,730.0,310.0,2,331.0,6,False,True,True
+3,Tight Battery,A*,Arad→Sibiu→Rimnicu Vilcea→Pitesti→Bucharest,418.0,6,0.09519999730400741,418.0,177.0,3,300.0,4,True,True,True
+3,Tight Battery,Dijkstra,Arad→Sibiu→Rimnicu Vilcea→Pitesti→Bucharest,418.0,27,0.21159998141229153,418.0,177.0,3,300.0,4,True,True,True
+3,Tight Battery,Greedy BFS,Arad→Sibiu→Rimnicu Vilcea→Pitesti→Bucharest,418.0,6,0.047699984861537814,418.0,177.0,3,300.0,4,True,True,True
+4,Time-Critical,A*,,inf,104,1.1640999873634428,,,0,,0,False,False,False
+4,Time-Critical,Dijkstra,,inf,104,1.430599979357794,,,0,,0,False,False,False
+4,Time-Critical,Greedy BFS,,inf,103,0.7448999967891723,,,0,,0,False,False,False
+5,Constrained Cross-Country,A*,,inf,54,0.6708999862894416,,,0,,0,False,False,False
+5,Constrained Cross-Country,Dijkstra,,inf,54,0.6179999909363687,,,0,,0,False,False,False
+5,Constrained Cross-Country,Greedy BFS,,inf,47,0.4249999765306711,,,0,,0,False,False,False
