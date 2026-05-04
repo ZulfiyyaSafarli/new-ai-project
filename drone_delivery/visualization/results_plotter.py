@@ -27,7 +27,7 @@ def _clear_bar_axis_and_twins(ax: Axes) -> None:
 def _series_for_algo(
     df: pd.DataFrame, scenarios: list, algo: str, metric: str
 ) -> tuple[list[float], list[bool]]:
-    """Values; `failed` means infeasible run (hatch bars) — only used for total_cost display."""
+    """Values per scenario; infeasible total_cost runs are NaN. `failed` mirrors that for total_cost."""
     vals: list[float] = []
     failed: list[bool] = []
     for sid in scenarios:
@@ -60,7 +60,7 @@ def _series_for_algo(
 
 
 def make_bar_chart(ax: Axes, df: pd.DataFrame, metric: str) -> None:
-    """Grouped bar chart: scenarios 1–5, groups = algorithms. Infeasible runs are hatched, not drawn as zero."""
+    """Grouped bar chart: scenarios × algorithms. Infeasible total_cost is omitted (NaN height)."""
     _clear_bar_axis_and_twins(ax)
     if df.empty or "scenario_id" not in df.columns:
         ax.text(0.5, 0.5, "No data", ha="center", va="center", transform=ax.transAxes)
@@ -70,29 +70,16 @@ def make_bar_chart(ax: Axes, df: pd.DataFrame, metric: str) -> None:
     x = np.arange(len(scenarios), dtype=float)
     width = 0.25
 
-    finite_caps: list[float] = []
-    for algo in ALGO_ORDER:
-        vals, _ = _series_for_algo(df, scenarios, algo, metric)
-        finite_caps.extend([v for v in vals if math.isfinite(v)])
-    max_fin = max(finite_caps) if finite_caps else 1.0
-    fail_height = max(max_fin * 1.12, max_fin + 1.0, 1.0)
-
     for i, algo in enumerate(ALGO_ORDER):
-        vals, failed = _series_for_algo(df, scenarios, algo, metric)
-        plot_vals = [fail_height if f and math.isnan(v) else (0.0 if not math.isfinite(v) else v) for v, f in zip(vals, failed)]
+        vals, _ = _series_for_algo(df, scenarios, algo, metric)
         offset = (i - 1) * width
-        bars = ax.bar(x + offset, plot_vals, width, label=algo)
-        if metric == "total_cost":
-            for rect, f in zip(bars.patches, failed):
-                if f:
-                    rect.set_hatch("xx")
-                    rect.set_alpha(0.55)
+        ax.bar(x + offset, vals, width, label=algo)
 
     ax.set_xticks(x)
     ax.set_xticklabels([str(int(s)) for s in scenarios])
     ax.set_xlabel("Scenario")
     ylabel = {
-        "total_cost": "Total cost (hatched = infeasible)",
+        "total_cost": "Total cost",
         "nodes_explored": "Nodes explored",
         "computation_time_ms": "Time (ms)",
         "battery_peak_leg_drain": "Peak leg battery drain",
